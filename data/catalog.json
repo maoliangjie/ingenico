@@ -1,0 +1,17 @@
+{
+  "project": {
+    "name": "Ingenico RAG MVP",
+    "stage": 1,
+    "capabilities": [
+      "local document ingestion",
+      "retrieval grounded answers",
+      "sqlite conversation memory",
+      "docker compose startup"
+    ]
+  },
+  "constraints": {
+    "frontend_included": false,
+    "upload_api_enabled": false,
+    "memory_backend": "sqlite"
+  }
+}

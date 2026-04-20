@@ -1,0 +1,8 @@
+.env
+.pytest_cache/
+__pycache__/
+*.pyc
+models/
+storage/chroma/
+storage/*.sqlite3
+storage/*.json

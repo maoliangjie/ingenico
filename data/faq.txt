@@ -1,0 +1,8 @@
+Q: How do I verify the API is running?
+A: Call GET /health and confirm the service reports ready=true.
+
+Q: How do I start a new conversation?
+A: Omit session_id in the first POST /chat request and reuse the returned session_id for follow-up turns.
+
+Q: Does stage 1 support file uploads?
+A: No. Stage 1 only reads local files from the data directory.
