@@ -29,19 +29,25 @@ class Settings:
     local_embedding_device: str
     data_dir: Path
     storage_dir: Path
+    uploads_dir: Path
+    upload_manifest_path: Path
     vector_dir: Path
-    memory_db_path: Path
     manifest_path: Path
+    redis_url: str
+    redis_prefix: str
+    redis_cache_ttl_seconds: int
     collection_name: str
     default_top_k: int
     history_window: int
     chunk_size: int
     chunk_overlap: int
+    frontend_dist_dir: Path
 
     @classmethod
     def from_env(cls) -> "Settings":
         storage_dir = Path(os.getenv("RAG_STORAGE_DIR", BASE_DIR / "storage")).resolve()
         data_dir = Path(os.getenv("RAG_DATA_DIR", BASE_DIR / "data")).resolve()
+        uploads_dir = Path(os.getenv("RAG_UPLOADS_DIR", storage_dir / "uploads")).resolve()
         return cls(
             openai_api_key=os.getenv("OPENAI_API_KEY", ""),
             openai_api_base=os.getenv("OPENAI_API_BASE"),
@@ -52,12 +58,17 @@ class Settings:
             local_embedding_device=os.getenv("LOCAL_EMBEDDING_DEVICE", "cpu"),
             data_dir=data_dir,
             storage_dir=storage_dir,
+            uploads_dir=uploads_dir,
+            upload_manifest_path=storage_dir / "uploads.json",
             vector_dir=storage_dir / "chroma",
-            memory_db_path=storage_dir / "memory.sqlite3",
             manifest_path=storage_dir / "index_manifest.json",
+            redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/0"),
+            redis_prefix=os.getenv("REDIS_PREFIX", "ingenico"),
+            redis_cache_ttl_seconds=_int_env("REDIS_CACHE_TTL_SECONDS", 3600),
             collection_name=os.getenv("RAG_COLLECTION_NAME", "knowledge_base"),
             default_top_k=_int_env("RAG_DEFAULT_TOP_K", 4),
             history_window=_int_env("RAG_HISTORY_WINDOW", 6),
             chunk_size=_int_env("RAG_CHUNK_SIZE", 900),
             chunk_overlap=_int_env("RAG_CHUNK_OVERLAP", 180),
+            frontend_dist_dir=Path(os.getenv("FRONTEND_DIST_DIR", BASE_DIR / "frontend" / "dist")).resolve(),
         )

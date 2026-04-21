@@ -1,1 +1,1 @@
-"""Service layer for the stage-1 RAG MVP."""
+"""Service layer for the stage-2 RAG application."""

@@ -13,7 +13,7 @@ COPY data ./data
 COPY AGENTS.md .
 COPY plan.md .
 
-RUN mkdir -p /app/storage/chroma
+RUN mkdir -p /app/storage/chroma /app/storage/uploads
 
 EXPOSE 8000
 

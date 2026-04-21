@@ -1,1 +1,1 @@
-"""Stage-1 local RAG MVP package."""
+"""Ingenico stage-2 local-document RAG package."""

@@ -5,6 +5,9 @@ langchain-huggingface==0.1.2
 langchain-openai==0.3.18
 langchain-text-splitters==0.3.8
 python-dotenv==1.1.0
+python-multipart==0.0.20
+redis==6.0.0
 sentence-transformers==3.4.1
 pytest==8.4.0
+fakeredis==2.31.0
 httpx==0.28.1

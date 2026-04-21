@@ -3,6 +3,7 @@
 __pycache__/
 *.pyc
 models/
-storage/chroma/
-storage/*.sqlite3
-storage/*.json
+frontend/node_modules/
+frontend/dist/
+storage/
+temp_test/

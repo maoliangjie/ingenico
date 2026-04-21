@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 from langchain_core.documents import Document
@@ -10,12 +11,19 @@ from langchain_core.documents import Document
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".json"}
 
 
-def discover_source_files(data_dir: Path) -> list[Path]:
-    if not data_dir.exists():
+@dataclass(frozen=True, slots=True)
+class SourceDirectory:
+    name: str
+    root: Path
+    scope: str
+
+
+def discover_source_files(source: SourceDirectory) -> list[Path]:
+    if not source.root.exists():
         return []
     return sorted(
         path
-        for path in data_dir.rglob("*")
+        for path in source.root.rglob("*")
         if path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS
     )
 
@@ -40,53 +48,60 @@ def flatten_json(payload: object, prefix: str = "") -> list[str]:
     return lines
 
 
-def load_documents(data_dir: Path) -> list[Document]:
+def load_documents_from_sources(sources: list[SourceDirectory]) -> list[Document]:
     documents: list[Document] = []
-    for path in discover_source_files(data_dir):
-        relative_path = path.relative_to(data_dir).as_posix()
-        if path.suffix.lower() == ".json":
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            content = "\n".join(flatten_json(payload))
-        else:
-            content = path.read_text(encoding="utf-8").strip()
+    for source in sources:
+        for path in discover_source_files(source):
+            relative_path = path.relative_to(source.root).as_posix()
+            if path.suffix.lower() == ".json":
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                content = "\n".join(flatten_json(payload))
+            else:
+                content = path.read_text(encoding="utf-8").strip()
 
-        if not content:
-            continue
+            if not content:
+                continue
 
-        documents.append(
-            Document(
-                page_content=content,
-                metadata={
-                    "source": relative_path,
-                    "file_name": path.name,
-                    "file_type": path.suffix.lower().lstrip("."),
-                },
+            documents.append(
+                Document(
+                    page_content=content,
+                    metadata={
+                        "source": relative_path,
+                        "file_name": path.name,
+                        "file_type": path.suffix.lower().lstrip("."),
+                        "scope": source.scope,
+                        "source_directory": source.name,
+                    },
+                )
             )
-        )
     return documents
 
 
-def compute_data_fingerprint(data_dir: Path) -> dict[str, object]:
-    files = discover_source_files(data_dir)
+def compute_sources_fingerprint(sources: list[SourceDirectory]) -> dict[str, object]:
     digest = hashlib.sha256()
     file_entries: list[dict[str, str | int]] = []
+    document_count = 0
 
-    for path in files:
-        relative_path = path.relative_to(data_dir).as_posix()
-        content = path.read_bytes()
-        digest.update(relative_path.encode("utf-8"))
-        digest.update(content)
-        file_entries.append(
-            {
-                "path": relative_path,
-                "size": len(content),
-            }
-        )
+    for source in sources:
+        for path in discover_source_files(source):
+            relative_path = path.relative_to(source.root).as_posix()
+            content = path.read_bytes()
+            digest.update(source.scope.encode("utf-8"))
+            digest.update(relative_path.encode("utf-8"))
+            digest.update(content)
+            file_entries.append(
+                {
+                    "scope": source.scope,
+                    "path": relative_path,
+                    "size": len(content),
+                }
+            )
+            document_count += 1
 
     return {
         "fingerprint": digest.hexdigest(),
         "files": file_entries,
-        "document_count": len(files),
+        "document_count": document_count,
     }
 
 

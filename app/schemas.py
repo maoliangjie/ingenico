@@ -20,6 +20,20 @@ class ChatResponse(BaseModel):
     session_id: str
     answer: str
     sources: list[SourceSnippet]
+    cache_hit: bool = False
+
+
+class UploadRecord(BaseModel):
+    file_id: str
+    file_name: str
+    stored_name: str
+    status: str
+    source_path: str
+    updated_at: str
+
+
+class UploadListResponse(BaseModel):
+    files: list[UploadRecord]
 
 
 class HealthResponse(BaseModel):
@@ -28,4 +42,6 @@ class HealthResponse(BaseModel):
     document_count: int
     chunk_count: int
     fingerprint: str | None = None
+    redis_ready: bool = False
+    upload_count: int = 0
     startup_error: str | None = None

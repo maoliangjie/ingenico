@@ -1,0 +1,93 @@
+{
+  "info": {
+    "name": "Ingenico Stage 2",
+    "_postman_id": "7f91c57b-4282-4a33-a1b4-ingenico-stage2",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/health"
+      }
+    },
+    {
+      "name": "Chat",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"How do I start a new conversation?\"\n}"
+        },
+        "url": "{{base_url}}/chat"
+      }
+    },
+    {
+      "name": "Chat Stream",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "text/event-stream" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"How do I start a new conversation?\"\n}"
+        },
+        "url": "{{base_url}}/chat/stream"
+      }
+    },
+    {
+      "name": "List Uploads",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/uploads"
+      }
+    },
+    {
+      "name": "Create Upload",
+      "request": {
+        "method": "POST",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": ""
+            }
+          ]
+        },
+        "url": "{{base_url}}/upload"
+      }
+    },
+    {
+      "name": "Replace Upload",
+      "request": {
+        "method": "PUT",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": ""
+            }
+          ]
+        },
+        "url": "{{base_url}}/uploads/{{file_id}}"
+      }
+    },
+    {
+      "name": "Delete Upload",
+      "request": {
+        "method": "DELETE",
+        "url": "{{base_url}}/uploads/{{file_id}}"
+      }
+    }
+  ]
+}
