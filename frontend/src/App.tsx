@@ -161,13 +161,8 @@ export default function App() {
 
   return (
     <main className="shell">
-      <section className="hero">
-        <p className="eyebrow">Ingenico RAG Console</p>
-        <h1>Stream grounded answers while curating the local knowledge surface.</h1>
-        <p className="hero-copy">
-          Stage 2 couples retrieval, Redis-backed memory, cached generations, and upload management in
-          one operator view.
-        </p>
+      <section className="topbar">
+        <h1>Ingenico</h1>
         <div className="status-strip">
           <span data-ready={health.ready}>{health.ready ? "Ready" : "Degraded"}</span>
           <span>{health.document_count} docs</span>
@@ -188,14 +183,14 @@ export default function App() {
           <div className="transcript">
             {messages.length === 0 ? (
               <p className="placeholder">
-                Start with a question like “How do I start a new conversation?” and the stream will appear
+                Start with a question like "How do I start a new conversation?" and the stream will appear
                 here.
               </p>
             ) : (
               messages.map((message) => (
                 <article key={message.id} className={`bubble bubble-${message.role}`}>
                   <span className="bubble-role">{message.role}</span>
-                  <p>{message.content || (busy && message.role === "assistant" ? "…" : "")}</p>
+                  <p>{message.content || (busy && message.role === "assistant" ? "..." : "")}</p>
                   {message.role === "assistant" && message.cacheHit !== undefined ? (
                     <small>{message.cacheHit ? "Redis cache hit" : "Fresh generation"}</small>
                   ) : null}
@@ -250,7 +245,7 @@ export default function App() {
           </div>
           <div className="uploads-list">
             {uploads.length === 0 ? (
-              <p className="placeholder">No uploaded files yet. Static `data/` content still participates.</p>
+              <p className="placeholder">No uploaded files yet. Static data still participates.</p>
             ) : (
               uploads.map((upload) => (
                 <article key={upload.file_id} className="upload-row">
