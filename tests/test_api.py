@@ -127,6 +127,23 @@ def test_upload_endpoints_round_trip_records():
     assert delete_response.status_code == 204
 
 
+def test_upload_endpoint_maps_pdf_validation_error_to_400():
+    class InvalidPdfService(FakeRagService):
+        def create_upload(self, file_name: str, content: bytes):
+            raise ValueError("PDF 'broken.pdf' does not contain extractable text.")
+
+    app = create_app(InvalidPdfService(), initialize_service=False)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/upload",
+            files={"file": ("broken.pdf", b"%PDF-1.4", "application/pdf")},
+        )
+
+    assert response.status_code == 400
+    assert "extractable text" in response.json()["detail"]
+
+
 def test_chat_endpoint_maps_upstream_rate_limit_to_429():
     class RateLimitedService(FakeRagService):
         def chat(self, message: str, session_id: str | None = None, top_k: int | None = None):

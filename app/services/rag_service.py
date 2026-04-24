@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import re
-import shutil
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -101,7 +100,7 @@ class RagService:
                 chunk_overlap=self.settings.chunk_overlap,
             )
             split_documents = splitter.split_documents(documents)
-            self._reset_vector_dir(self.settings.vector_dir)
+            self._reset_collection()
             self.vector_store = Chroma.from_documents(
                 documents=split_documents,
                 embedding=self.embeddings,
@@ -277,11 +276,29 @@ class RagService:
             "updated_at": record.updated_at,
         }
 
-    @staticmethod
-    def _reset_vector_dir(vector_dir: Path) -> None:
-        if vector_dir.exists():
-            shutil.rmtree(vector_dir)
-        vector_dir.mkdir(parents=True, exist_ok=True)
+    def _reset_collection(self) -> None:
+        self.settings.vector_dir.mkdir(parents=True, exist_ok=True)
+        if self.vector_store is not None:
+            try:
+                self.vector_store.delete_collection()
+            except Exception as exc:  # pragma: no cover - defensive cleanup path
+                LOGGER.warning("Unable to delete existing Chroma collection cleanly: %s", exc)
+            finally:
+                self.vector_store = None
+            return
+
+        if not self.settings.vector_dir.exists():
+            return
+
+        existing_store = Chroma(
+            collection_name=self.settings.collection_name,
+            persist_directory=str(self.settings.vector_dir),
+            embedding_function=self.embeddings,
+        )
+        try:
+            existing_store.delete_collection()
+        except Exception as exc:  # pragma: no cover - best-effort cleanup on cold start
+            LOGGER.warning("Unable to delete existing persisted Chroma collection cleanly: %s", exc)
 
     def _source_directories(self) -> list[SourceDirectory]:
         return [

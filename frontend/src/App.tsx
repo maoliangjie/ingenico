@@ -238,7 +238,7 @@ export default function App() {
               {uploading ? "Processing..." : "Add file"}
               <input
                 type="file"
-                accept=".txt,.md,.json"
+                accept=".txt,.md,.json,.pdf"
                 onChange={(event) => void handleCreateUpload(event.target.files?.[0] ?? null)}
               />
             </label>
@@ -269,7 +269,7 @@ export default function App() {
                         replaceInputRefs.current[upload.file_id] = node;
                       }}
                       type="file"
-                      accept=".txt,.md,.json"
+                      accept=".txt,.md,.json,.pdf"
                       hidden
                       onChange={(event) => void handleReplaceUpload(upload.file_id, event.target.files?.[0] ?? null)}
                     />

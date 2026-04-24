@@ -8,6 +8,7 @@
 ## What it solves
 - Gives both automated and manual ways to validate the stage-2 stack
 - Covers the new Redis, SSE, and upload capabilities introduced in this stage
+- Covers minimum-viable PDF ingestion for both static loading and upload validation
 - Provides repeatable entry points for reviewers who prefer scripts or GUI tooling
 
 ## Technologies used
@@ -30,3 +31,4 @@
 - Stream chat: `python scripts/verify/chat_stream.py --message "How do I start a new conversation?"`
 - Upload lifecycle: `python scripts/verify/upload_lifecycle.py`
 - Cache check: `python scripts/verify/redis_cache_check.py --message "How do I start a new conversation?"`
+- PDF upload check: use the upload lifecycle script or Postman with a text-based `.pdf` file and confirm it appears in `/uploads`

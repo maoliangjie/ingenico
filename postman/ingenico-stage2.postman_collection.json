@@ -83,6 +83,14 @@
       }
     },
     {
+      "name": "PDF Upload Note",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/health",
+        "description": "Use Create Upload or Replace Upload with a text-based .pdf file. Image-only, encrypted, or unreadable PDFs should return 400."
+      }
+    },
+    {
       "name": "Delete Upload",
       "request": {
         "method": "DELETE",

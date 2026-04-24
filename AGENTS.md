@@ -7,7 +7,7 @@
 - `app/`: API entrypoint, config, schemas, and orchestration services.
 - `app/services/`: retrieval, Redis store, upload persistence, and document loading.
 - `frontend/`: Vite React + TypeScript operator console.
-- `data/`: static knowledge inputs (`.txt`, `.md`, `.json` only).
+- `data/`: static knowledge inputs (`.txt`, `.md`, `.json`, `.pdf` only).
 - `models/`: local embedding model files for offline startup.
 - `storage/`: runtime artifacts for Chroma, upload metadata, and temporary files.
 - `docs/`: module documentation and operating notes.
@@ -29,7 +29,7 @@
 - `GET /health`: readiness, index stats, Redis state, upload count, startup error.
 - `POST /chat`: `message`, optional `session_id`, optional `top_k`; returns `session_id`, `answer`, `sources`, `cache_hit`.
 - `POST /chat/stream`: same request body as `/chat`; emits `start`, `token`, `sources`, `done`, `error`.
-- `POST /upload`: multipart file upload for `.txt`, `.md`, `.json`.
+- `POST /upload`: multipart file upload for `.txt`, `.md`, `.json`, `.pdf`.
 - `GET /uploads`: list uploaded files and metadata.
 - `PUT /uploads/{file_id}`: replace an uploaded file.
 - `DELETE /uploads/{file_id}`: remove an uploaded file.
@@ -41,7 +41,7 @@
 - Redis is the primary store for session memory and LLM cache in stage 2.
 - Rebuild the vector index when source content or embedding configuration changes.
 - Uploaded files persist under `storage/uploads/` and count as first-class knowledge sources.
-- Supported ingestion types remain limited to `.txt`, `.md`, and `.json`.
+- Supported ingestion types remain limited to `.txt`, `.md`, `.json`, and `.pdf`.
 - JSON ingestion must flatten nested keys into readable text lines.
 - Return source snippets with every answer for RAG verification.
 - Keep provider config separate for chat and embeddings.

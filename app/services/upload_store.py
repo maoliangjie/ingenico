@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
-from app.services.document_loader import SUPPORTED_EXTENSIONS
+from app.services.document_loader import SUPPORTED_EXTENSIONS, extract_pdf_text
 
 
 @dataclass(slots=True)
@@ -34,7 +34,7 @@ class UploadStore:
         return [UploadRecord(**item) for item in self._read_records()]
 
     def create_upload(self, file_name: str, content: bytes) -> UploadRecord:
-        self._ensure_supported(file_name)
+        self._ensure_supported(file_name, content)
         record = UploadRecord(
             file_id=str(uuid4()),
             file_name=file_name,
@@ -51,7 +51,7 @@ class UploadStore:
         return record
 
     def replace_upload(self, file_id: str, file_name: str, content: bytes) -> UploadRecord:
-        self._ensure_supported(file_name)
+        self._ensure_supported(file_name, content)
         with self._lock:
             records = self._read_records()
             for item in records:
@@ -84,11 +84,13 @@ class UploadStore:
                 raise KeyError(file_id)
             self._write_records(remaining)
 
-    def _ensure_supported(self, file_name: str) -> None:
+    def _ensure_supported(self, file_name: str, content: bytes) -> None:
         suffix = Path(file_name).suffix.lower()
         if suffix not in SUPPORTED_EXTENSIONS:
             supported = ", ".join(sorted(SUPPORTED_EXTENSIONS))
             raise ValueError(f"Unsupported file type '{suffix}'. Supported: {supported}")
+        if suffix == ".pdf":
+            extract_pdf_text(content, file_name)
 
     def _write_file(self, stored_name: str, content: bytes) -> str:
         file_path = self.uploads_dir / stored_name
