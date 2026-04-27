@@ -10,7 +10,17 @@ from fastapi.responses import Response, StreamingResponse
 from openai import APIError, AuthenticationError, RateLimitError
 
 from app.config import Settings
-from app.schemas import ChatRequest, ChatResponse, HealthResponse, UploadListResponse, UploadRecord
+from app.schemas import (
+    ChatRequest,
+    ChatResponse,
+    HealthResponse,
+    ToolCatalogEntry,
+    ToolCatalogResponse,
+    ToolInvocationRequest,
+    ToolInvocationResponse,
+    UploadListResponse,
+    UploadRecord,
+)
 from app.services.rag_service import RagService
 
 
@@ -32,8 +42,8 @@ def create_app(
         yield
 
     app = FastAPI(
-        title="Ingenico Stage-2 RAG",
-        version="2.0.0",
+        title="Ingenico Stage-3 Agentic RAG",
+        version="3.0.0",
         lifespan=lifespan,
     )
     app.add_middleware(
@@ -92,15 +102,18 @@ def create_app(
                     top_k=payload.top_k,
                 )
                 yield _sse("start", {"session_id": result["session_id"], "cache_hit": result["cache_hit"]})
+                yield _sse("tools", {"tool_calls": result["tool_calls"]})
+                yield _sse("sources", {"sources": result["sources"]})
                 for token in result["answer"].split():
                     yield _sse("token", {"text": token + " "})
-                yield _sse("sources", {"sources": result["sources"]})
                 yield _sse(
                     "done",
                     {
                         "session_id": result["session_id"],
                         "answer": result["answer"],
                         "cache_hit": result["cache_hit"],
+                        "sources": result["sources"],
+                        "tool_calls": result["tool_calls"],
                     },
                 )
             except HTTPException as exc:
@@ -114,6 +127,29 @@ def create_app(
     def list_uploads(request: Request, rag: Any = Depends(get_rag_service)) -> UploadListResponse:
         ensure_ready(request)
         return UploadListResponse(files=[UploadRecord(**item) for item in rag.list_uploads()])
+
+    @app.get("/mcp/tools", response_model=ToolCatalogResponse)
+    def list_tools(request: Request, rag: Any = Depends(get_rag_service)) -> ToolCatalogResponse:
+        ensure_ready(request)
+        return ToolCatalogResponse(tools=[ToolCatalogEntry(**item) for item in rag.list_tools()])
+
+    @app.post("/mcp/tools/{tool_name}", response_model=ToolInvocationResponse)
+    def invoke_tool(
+        tool_name: str,
+        payload: ToolInvocationRequest,
+        request: Request,
+        rag: Any = Depends(get_rag_service),
+    ) -> ToolInvocationResponse:
+        ensure_ready(request)
+        try:
+            result = rag.invoke_tool(
+                tool_name,
+                arguments=payload.arguments,
+                session_id=payload.session_id,
+            )
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return ToolInvocationResponse(tool=result)
 
     @app.post("/upload", response_model=UploadRecord)
     async def upload_file(

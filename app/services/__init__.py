@@ -1,1 +1,1 @@
-"""Service layer for the stage-2 RAG application."""
+"""Service layer for the stage-3 agentic RAG application."""

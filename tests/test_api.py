@@ -15,6 +15,7 @@ class FakeRagService:
             "fingerprint": "abc123",
             "redis_ready": True,
             "upload_count": 1,
+            "tool_count": 4,
         }
 
     def chat(self, message: str, session_id: str | None = None, top_k: int | None = None):
@@ -28,6 +29,28 @@ class FakeRagService:
                     "file_name": "faq.txt",
                     "content": "Stage 2 supports uploads and SSE.",
                     "score": 0.12,
+                }
+            ],
+            "tool_calls": [
+                {
+                    "tool_name": "search_knowledge",
+                    "status": "completed",
+                    "grounding_type": "retrieval",
+                    "arguments": {"query": message, "top_k": top_k or 4},
+                    "result_preview": "Retrieved 1 knowledge snippet(s) for the active question.",
+                    "payload": {
+                        "query": message,
+                        "top_k": top_k or 4,
+                        "count": 1,
+                        "sources": [
+                            {
+                                "source": "faq.txt",
+                                "file_name": "faq.txt",
+                                "content": "Stage 2 supports uploads and SSE.",
+                                "score": 0.12,
+                            }
+                        ],
+                    },
                 }
             ],
         }
@@ -67,6 +90,27 @@ class FakeRagService:
     def delete_upload(self, file_id: str):
         return None
 
+    def list_tools(self):
+        return [
+            {
+                "name": "search_knowledge",
+                "title": "Search Knowledge Base",
+                "description": "Retrieve relevant knowledge snippets.",
+                "grounding_type": "retrieval",
+                "input_schema": {"type": "object"},
+            }
+        ]
+
+    def invoke_tool(self, tool_name: str, *, arguments=None, session_id=None):
+        return {
+            "tool_name": tool_name,
+            "status": "completed",
+            "grounding_type": "retrieval",
+            "arguments": arguments or {},
+            "result_preview": "Tool execution completed.",
+            "payload": {"ok": True, "session_id": session_id},
+        }
+
 
 def test_health_endpoint_returns_stage2_stats():
     app = create_app(FakeRagService(), initialize_service=False)
@@ -78,6 +122,7 @@ def test_health_endpoint_returns_stage2_stats():
     assert response.json()["ready"] is True
     assert response.json()["redis_ready"] is True
     assert response.json()["upload_count"] == 1
+    assert response.json()["tool_count"] == 4
 
 
 def test_chat_endpoint_generates_session_id_when_missing():
@@ -90,6 +135,7 @@ def test_chat_endpoint_generates_session_id_when_missing():
     assert response.status_code == 200
     assert body["session_id"] == "generated-session"
     assert body["sources"][0]["file_name"] == "faq.txt"
+    assert body["tool_calls"][0]["tool_name"] == "search_knowledge"
 
 
 def test_stream_chat_endpoint_emits_sse_events():
@@ -102,6 +148,7 @@ def test_stream_chat_endpoint_emits_sse_events():
     assert "event: start" in response.text
     assert "event: token" in response.text
     assert "event: sources" in response.text
+    assert "event: tools" in response.text
     assert "event: done" in response.text
 
 
@@ -125,6 +172,22 @@ def test_upload_endpoints_round_trip_records():
     assert create_response.status_code == 200
     assert replace_response.status_code == 200
     assert delete_response.status_code == 204
+
+
+def test_mcp_tool_catalog_and_invoke_endpoint():
+    app = create_app(FakeRagService(), initialize_service=False)
+
+    with TestClient(app) as client:
+        catalog_response = client.get("/mcp/tools")
+        invoke_response = client.post(
+            "/mcp/tools/search_knowledge",
+            json={"arguments": {"query": "hello"}},
+        )
+
+    assert catalog_response.status_code == 200
+    assert catalog_response.json()["tools"][0]["name"] == "search_knowledge"
+    assert invoke_response.status_code == 200
+    assert invoke_response.json()["tool"]["tool_name"] == "search_knowledge"
 
 
 def test_upload_endpoint_maps_pdf_validation_error_to_400():

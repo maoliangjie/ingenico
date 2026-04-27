@@ -1,4 +1,4 @@
-import type { ChatResponse, HealthResponse, SourceSnippet, UploadListResponse, UploadRecord } from "./types";
+import type { ChatResponse, HealthResponse, SourceSnippet, ToolCall, UploadListResponse, UploadRecord } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -44,6 +44,7 @@ export async function deleteUpload(fileId: string): Promise<void> {
 
 type StreamHandlers = {
   onStart: (payload: { session_id: string; cache_hit: boolean }) => void;
+  onTools: (toolCalls: ToolCall[]) => void;
   onToken: (text: string) => void;
   onSources: (sources: SourceSnippet[]) => void;
   onDone: (payload: ChatResponse) => void;
@@ -86,6 +87,9 @@ export async function streamChat(
       if (event.name === "start") {
         handlers.onStart(event.data as { session_id: string; cache_hit: boolean });
       }
+      if (event.name === "tools") {
+        handlers.onTools((event.data as { tool_calls: ToolCall[] }).tool_calls);
+      }
       if (event.name === "token") {
         handlers.onToken((event.data as { text: string }).text);
       }
@@ -93,12 +97,19 @@ export async function streamChat(
         handlers.onSources((event.data as { sources: SourceSnippet[] }).sources);
       }
       if (event.name === "done") {
-        const donePayload = event.data as { session_id: string; answer: string; cache_hit: boolean };
+        const donePayload = event.data as {
+          session_id: string;
+          answer: string;
+          cache_hit: boolean;
+          sources: SourceSnippet[];
+          tool_calls: ToolCall[];
+        };
         handlers.onDone({
           session_id: donePayload.session_id,
           answer: donePayload.answer,
           cache_hit: donePayload.cache_hit,
-          sources: [],
+          sources: donePayload.sources,
+          tool_calls: donePayload.tool_calls,
         });
       }
     }

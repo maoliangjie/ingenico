@@ -30,12 +30,22 @@ Implementation notes:
 - Client-visible answers always strip `<think>` content while backend logs retain it.
 
 ## Stage 3
-Status: planned
+Status: completed
 
-Candidate scope:
-- Agent tool routing
-- MCP integration
-- Structured tool result grounding
+Delivered:
+- Agent tool router integrated into `POST /chat` and `POST /chat/stream`
+- Structured tool traces returned as `tool_calls`
+- MCP-style tool catalog at `GET /mcp/tools`
+- Direct tool invocation at `POST /mcp/tools/{tool_name}`
+- Runtime tools for knowledge search, system health, upload listing, and session recall
+- Frontend tool trace panel for each answer
+- Test coverage and verification script for the stage-3 tool layer
+
+Implementation notes:
+- The default chat path always routes through `search_knowledge` before generation.
+- Operational questions can also call health, upload, or session-history tools.
+- Tool results are included in cache keys and prompt grounding so cached answers match the same runtime facts.
+- Client-visible answers still strip `<think>` content; tool traces expose structured facts, not hidden reasoning.
 
 ## Stage 4
 Status: planned

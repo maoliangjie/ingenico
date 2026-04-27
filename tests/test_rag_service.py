@@ -147,8 +147,9 @@ def test_chat_uses_redis_cache_for_repeat_calls(tmp_path, monkeypatch):
     monkeypatch.setattr(service.redis_store, "load_messages", lambda session_id, limit: [])
     monkeypatch.setattr(service.redis_store, "save_message", lambda session_id, role, content: None)
 
-    def fake_generate_answer(question, history, sources):
+    def fake_generate_answer(question, history, sources, tool_call_records):
         calls["count"] += 1
+        assert tool_call_records[0].tool_name == "search_knowledge"
         return "cached answer"
 
     monkeypatch.setattr(service, "_generate_answer", fake_generate_answer)
@@ -178,3 +179,82 @@ def test_upload_operations_refresh_index(tmp_path, monkeypatch):
     assert created["file_name"] == "note.txt"
     assert replaced["file_name"] == "note.txt"
     assert refresh_calls["count"] == 3
+
+
+def test_stage3_tool_catalog_and_direct_tool_invoke(tmp_path, monkeypatch):
+    service = build_service(tmp_path, "local")
+    service.vector_store = type(
+        "FakeVectorStore",
+        (),
+        {
+            "similarity_search_with_score": staticmethod(
+                lambda message, k: [
+                    (
+                        type(
+                            "FakeDocument",
+                            (),
+                            {
+                                "metadata": {"source": "faq.txt", "file_name": "faq.txt"},
+                                "page_content": "Answer from source",
+                            },
+                        )(),
+                        0.2,
+                    )
+                ]
+            )
+        },
+    )()
+    monkeypatch.setattr(service.redis_store, "load_messages", lambda session_id, limit: [])
+
+    catalog = service.list_tools()
+    result = service.invoke_tool("search_knowledge", arguments={"query": "hello", "top_k": 2})
+
+    assert any(item["name"] == "search_knowledge" for item in catalog)
+    assert result["tool_name"] == "search_knowledge"
+    assert result["payload"]["count"] == 1
+
+
+def test_chat_routes_operational_question_to_runtime_tools(tmp_path, monkeypatch):
+    service = build_service(tmp_path, "local")
+    service.index_stats.update(
+        {
+            "ready": True,
+            "document_count": 5,
+            "chunk_count": 11,
+            "fingerprint": "abc",
+            "redis_ready": True,
+            "upload_count": 0,
+            "tool_count": 4,
+        }
+    )
+    service.vector_store = type(
+        "FakeVectorStore",
+        (),
+        {
+            "similarity_search_with_score": staticmethod(
+                lambda message, k: [
+                    (
+                        type(
+                            "FakeDocument",
+                            (),
+                            {
+                                "metadata": {"source": "faq.txt", "file_name": "faq.txt"},
+                                "page_content": "Health checks use GET /health.",
+                            },
+                        )(),
+                        0.2,
+                    )
+                ]
+            )
+        },
+    )()
+    service.llm = object()
+    monkeypatch.setattr(service.redis_store, "load_messages", lambda session_id, limit: [])
+    monkeypatch.setattr(service.redis_store, "save_message", lambda session_id, role, content: None)
+    monkeypatch.setattr(service, "_generate_answer", lambda *args: "ready")
+
+    result = service.chat("What is the current health status and how many docs are loaded?")
+
+    tool_names = [item["tool_name"] for item in result["tool_calls"]]
+    assert "search_knowledge" in tool_names
+    assert "get_system_health" in tool_names

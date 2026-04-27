@@ -61,6 +61,7 @@ class RedisChatStore:
         history: list[MemoryMessage],
         sources: list[dict[str, Any]],
         top_k: int,
+        tool_results: list[dict[str, Any]] | None = None,
     ) -> str:
         payload = {
             "model": model,
@@ -68,6 +69,7 @@ class RedisChatStore:
             "history": [{"role": item.role, "content": item.content} for item in history],
             "sources": sources,
             "top_k": top_k,
+            "tool_results": tool_results or [],
         }
         serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True)
         return hashlib.sha256(serialized.encode("utf-8")).hexdigest()

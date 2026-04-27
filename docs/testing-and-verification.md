@@ -1,14 +1,15 @@
 # Testing and Verification Module
 
 ## What it implements
-- Automated pytest coverage for API, retrieval, Redis store, upload store, and RAG helpers
+- Automated pytest coverage for API, retrieval, Redis store, upload store, RAG helpers, and agent tools
 - Command-line verification scripts under `scripts/verify/`
 - Postman collection and environment under `postman/`
 
 ## What it solves
-- Gives both automated and manual ways to validate the stage-2 stack
+- Gives both automated and manual ways to validate the stage-3 stack
 - Covers the new Redis, SSE, and upload capabilities introduced in this stage
 - Covers minimum-viable PDF ingestion for both static loading and upload validation
+- Covers stage-3 MCP-style tool discovery and direct invocation
 - Provides repeatable entry points for reviewers who prefer scripts or GUI tooling
 
 ## Technologies used
@@ -31,4 +32,5 @@
 - Stream chat: `python scripts/verify/chat_stream.py --message "How do I start a new conversation?"`
 - Upload lifecycle: `python scripts/verify/upload_lifecycle.py`
 - Cache check: `python scripts/verify/redis_cache_check.py --message "How do I start a new conversation?"`
+- Agent tools check: `python scripts/verify/agent_tools_check.py`
 - PDF upload check: use the upload lifecycle script or Postman with a text-based `.pdf` file and confirm it appears in `/uploads`

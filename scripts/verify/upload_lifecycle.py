@@ -21,7 +21,7 @@ def main() -> None:
     args = parser.parse_args()
 
     upload_name = "verify-note.txt"
-    upload_bytes = b"stage2 upload create"
+    upload_bytes = b"stage3 upload create"
     upload_type = "text/plain"
     if args.file:
         file_path = Path(args.file)

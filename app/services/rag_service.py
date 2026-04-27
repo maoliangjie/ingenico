@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.config import Settings
 from app.schemas import SourceSnippet
+from app.services.agent_tools import AgentToolbox
 from app.services.document_loader import (
     SourceDirectory,
     compute_sources_fingerprint,
@@ -49,6 +51,7 @@ class RagService:
         self.embeddings: HuggingFaceEmbeddings | OpenAIEmbeddings | None = None
         self.llm: ChatOpenAI | None = None
         self.vector_store: Chroma | None = None
+        self.agent_tools = AgentToolbox(self)
         self.index_stats: dict[str, Any] = {
             "ready": False,
             "document_count": 0,
@@ -56,6 +59,7 @@ class RagService:
             "fingerprint": None,
             "redis_ready": False,
             "upload_count": 0,
+            "tool_count": len(self.agent_tools.catalog()),
         }
 
     def initialize(self) -> None:
@@ -120,6 +124,7 @@ class RagService:
                 "fingerprint": str(current_manifest["fingerprint"]),
                 "redis_ready": self.redis_store.ping(),
                 "upload_count": len(self.upload_store.list_uploads()),
+                "tool_count": len(self.agent_tools.catalog()),
             }
             return
 
@@ -135,6 +140,7 @@ class RagService:
             "fingerprint": previous_manifest.get("fingerprint"),
             "redis_ready": self.redis_store.ping(),
             "upload_count": len(self.upload_store.list_uploads()),
+            "tool_count": len(self.agent_tools.catalog()),
         }
 
     def chat(
@@ -150,19 +156,34 @@ class RagService:
         cleaned_message = message.strip()
         effective_top_k = top_k or self.settings.default_top_k
         history = self.redis_store.load_messages(active_session_id, self.settings.history_window)
-        retrieved = self.vector_store.similarity_search_with_score(cleaned_message, k=effective_top_k)
-        sources = [self._build_source(document, score) for document, score in retrieved]
+        planned_tool_calls = self.agent_tools.route(
+            message=cleaned_message,
+            session_id=active_session_id,
+            top_k=effective_top_k,
+            history=history,
+        )
+        tool_call_records = [
+            self.agent_tools.execute(
+                tool_name=item.tool_name,
+                arguments=item.arguments,
+                session_id=active_session_id,
+                history=history,
+            )
+            for item in planned_tool_calls
+        ]
+        sources = self._sources_from_tool_calls(tool_call_records)
         cache_key = self.redis_store.build_cache_key(
             model=self.settings.chat_model,
             question=cleaned_message,
             history=history,
             sources=[source.model_dump() for source in sources],
             top_k=effective_top_k,
+            tool_results=[item.to_dict() for item in tool_call_records],
         )
         cached_answer = self.redis_store.get_cached_answer(cache_key)
         cache_hit = cached_answer is not None
         answer = cached_answer or self._strip_reasoning_blocks(
-            self._generate_answer(cleaned_message, history, sources),
+            self._generate_answer(cleaned_message, history, sources, tool_call_records),
             active_session_id,
         )
         if not cache_hit:
@@ -176,10 +197,14 @@ class RagService:
             "answer": answer,
             "sources": [source.model_dump() for source in sources],
             "cache_hit": cache_hit,
+            "tool_calls": [item.to_dict() for item in tool_call_records],
         }
 
     def list_uploads(self) -> list[dict[str, Any]]:
         return [self._upload_record_payload(item) for item in self.upload_store.list_uploads()]
+
+    def list_upload_records(self) -> list[UploadRecord]:
+        return self.upload_store.list_uploads()
 
     def create_upload(self, file_name: str, content: bytes) -> dict[str, Any]:
         record = self.upload_store.create_upload(file_name, content)
@@ -202,13 +227,40 @@ class RagService:
             "startup_error": None,
         }
 
+    def list_tools(self) -> list[dict[str, Any]]:
+        return self.agent_tools.catalog()
+
+    def invoke_tool(
+        self,
+        tool_name: str,
+        *,
+        arguments: dict[str, Any] | None = None,
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        active_session_id = session_id or str(uuid4())
+        history = self.redis_store.load_messages(active_session_id, self.settings.history_window)
+        result = self.agent_tools.execute(
+            tool_name=tool_name,
+            arguments=arguments or {},
+            session_id=active_session_id,
+            history=history,
+        )
+        return result.to_dict()
+
+    def search_knowledge(self, query: str, top_k: int) -> list[SourceSnippet]:
+        if not self.vector_store:
+            raise RuntimeError("RAG service is not initialized.")
+        retrieved = self.vector_store.similarity_search_with_score(query, k=top_k)
+        return [self._build_source(document, score) for document, score in retrieved]
+
     def _generate_answer(
         self,
         question: str,
         history: list[MemoryMessage],
         sources: list[SourceSnippet],
+        tool_call_records: list[Any],
     ) -> str:
-        if not sources:
+        if not sources and not tool_call_records:
             return "I do not have enough information in the current knowledge base to answer that."
 
         history_text = "\n".join(
@@ -217,20 +269,27 @@ class RagService:
         context_text = "\n\n".join(
             f"[{index}] {source.file_name}\n{source.content}"
             for index, source in enumerate(sources, start=1)
-        )
+        ) or "No retrieved knowledge snippets."
+        tool_text = "\n\n".join(
+            f"{item.tool_name}\n{json.dumps(item.payload, ensure_ascii=False)}"
+            for item in tool_call_records
+            if item.payload is not None and item.tool_name != "search_knowledge"
+        ) or "No additional tool results."
         response = self.llm.invoke(
             [
                 SystemMessage(
                     content=(
-                        "You are a retrieval-grounded assistant. Answer only with support from the provided "
-                        "context. If the context is missing or insufficient, say you do not have enough "
-                        "information in the current knowledge base."
+                        "You are a retrieval-grounded assistant with structured tools. Answer only with support "
+                        "from the provided retrieved context and explicit tool results. Treat tool results as "
+                        "authoritative runtime facts. If the context is missing or insufficient, say you do not "
+                        "have enough information in the current knowledge base."
                     )
                 ),
                 HumanMessage(
                     content=(
                         f"Conversation history:\n{history_text}\n\n"
                         f"Retrieved context:\n{context_text}\n\n"
+                        f"Tool results:\n{tool_text}\n\n"
                         f"Question:\n{question}"
                     )
                 ),
@@ -264,6 +323,16 @@ class RagService:
             content=document.page_content[:400],
             score=score,
         )
+
+    @staticmethod
+    def _sources_from_tool_calls(tool_call_records: list[Any]) -> list[SourceSnippet]:
+        for item in tool_call_records:
+            if item.tool_name != "search_knowledge":
+                continue
+            payload = item.payload if isinstance(item.payload, dict) else {}
+            raw_sources = payload.get("sources", [])
+            return [SourceSnippet.model_validate(source) for source in raw_sources]
+        return []
 
     @staticmethod
     def _upload_record_payload(record: UploadRecord) -> dict[str, str]:

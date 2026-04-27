@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { createUpload, deleteUpload, fetchHealth, fetchUploads, replaceUpload, streamChat } from "./api";
-import type { ChatMessage, HealthResponse, SourceSnippet, UploadRecord } from "./types";
+import type { ChatMessage, HealthResponse, SourceSnippet, ToolCall, UploadRecord } from "./types";
 
 const EMPTY_HEALTH: HealthResponse = {
   status: "starting",
@@ -10,6 +10,7 @@ const EMPTY_HEALTH: HealthResponse = {
   chunk_count: 0,
   redis_ready: false,
   upload_count: 0,
+  tool_count: 0,
   fingerprint: null,
   startup_error: null,
 };
@@ -18,6 +19,7 @@ export default function App() {
   const [health, setHealth] = useState<HealthResponse>(EMPTY_HEALTH);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sources, setSources] = useState<SourceSnippet[]>([]);
+  const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
   const [uploads, setUploads] = useState<UploadRecord[]>([]);
   const [question, setQuestion] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -61,6 +63,7 @@ export default function App() {
     setBusy(true);
     setError(null);
     setSources([]);
+    setToolCalls([]);
     const currentQuestion = question.trim();
     setQuestion("");
 
@@ -73,6 +76,9 @@ export default function App() {
         {
           onStart(payload) {
             setSessionId(payload.session_id);
+          },
+          onTools(nextToolCalls) {
+            setToolCalls(nextToolCalls);
           },
           onToken(token) {
             setMessages((current) =>
@@ -88,6 +94,8 @@ export default function App() {
           },
           onDone(payload) {
             setSessionId(payload.session_id);
+            setSources(payload.sources);
+            setToolCalls(payload.tool_calls);
             setMessages((current) =>
               current.map((item) =>
                 item.id === assistantId
@@ -167,6 +175,7 @@ export default function App() {
           <span data-ready={health.ready}>{health.ready ? "Ready" : "Degraded"}</span>
           <span>{health.document_count} docs</span>
           <span>{health.chunk_count} chunks</span>
+          <span>{health.tool_count} tools</span>
           <span>Redis {health.redis_ready ? "connected" : "offline"}</span>
           <span>{health.upload_count} uploads</span>
         </div>
@@ -227,6 +236,26 @@ export default function App() {
                     <span>{source.score?.toFixed(3) ?? "n/a"}</span>
                   </div>
                   <p>{source.content}</p>
+                </article>
+              ))
+            )}
+          </div>
+
+          <div className="section-head uploads-head">
+            <h2>Tools</h2>
+            <p>Latest agent routing trace</p>
+          </div>
+          <div className="sources-list">
+            {toolCalls.length === 0 ? (
+              <p className="placeholder">Tool routing will appear here when stage 3 uses runtime tools.</p>
+            ) : (
+              toolCalls.map((toolCall) => (
+                <article key={toolCall.tool_name} className="source-block">
+                  <div>
+                    <strong>{toolCall.tool_name}</strong>
+                    <span>{toolCall.grounding_type}</span>
+                  </div>
+                  <p>{toolCall.result_preview}</p>
                 </article>
               ))
             )}

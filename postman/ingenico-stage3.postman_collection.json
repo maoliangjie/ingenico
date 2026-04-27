@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Ingenico Stage 2",
-    "_postman_id": "7f91c57b-4282-4a33-a1b4-ingenico-stage2",
+    "name": "Ingenico Stage 3",
+    "_postman_id": "7f91c57b-4282-4a33-a1b4-ingenico-stage3",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -21,7 +21,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"message\": \"How do I start a new conversation?\"\n}"
+          "raw": "{\n  \"message\": \"What is the current health status and how many documents are loaded?\"\n}"
         },
         "url": "{{base_url}}/chat"
       }
@@ -39,6 +39,41 @@
           "raw": "{\n  \"message\": \"How do I start a new conversation?\"\n}"
         },
         "url": "{{base_url}}/chat/stream"
+      }
+    },
+    {
+      "name": "List MCP Tools",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/mcp/tools"
+      }
+    },
+    {
+      "name": "Invoke Health Tool",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"arguments\": {}\n}"
+        },
+        "url": "{{base_url}}/mcp/tools/get_system_health"
+      }
+    },
+    {
+      "name": "Invoke Knowledge Search Tool",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"arguments\": {\n    \"query\": \"How do I start a new conversation?\",\n    \"top_k\": 3\n  }\n}"
+        },
+        "url": "{{base_url}}/mcp/tools/search_knowledge"
       }
     },
     {

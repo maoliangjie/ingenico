@@ -13,7 +13,17 @@ export type HealthResponse = {
   fingerprint?: string | null;
   redis_ready: boolean;
   upload_count: number;
+  tool_count: number;
   startup_error?: string | null;
+};
+
+export type ToolCall = {
+  tool_name: string;
+  status: string;
+  grounding_type: string;
+  arguments: Record<string, unknown>;
+  result_preview: string;
+  payload?: Record<string, unknown> | unknown[] | string | null;
 };
 
 export type ChatResponse = {
@@ -21,6 +31,7 @@ export type ChatResponse = {
   answer: string;
   sources: SourceSnippet[];
   cache_hit: boolean;
+  tool_calls: ToolCall[];
 };
 
 export type UploadRecord = {
